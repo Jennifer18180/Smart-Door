@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ana AI - Visitante</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        :root { --bg: #0f172a; --accent: #38bdf8; --text: #f8fafc; }
+        body { 
+            background: var(--bg); color: var(--text); font-family: sans-serif; 
+            margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+        #video-container { position: relative; width: 100%; flex-grow: 1; background: #000; }
+        #localVideo { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        #selector-apto {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95); z-index: 20;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .grid-aptos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px; }
+        .btn-apto {
+            background: #1e293b; color: white; border: 1px solid var(--accent);
+            padding: 15px 25px; border-radius: 10px; font-weight: bold; cursor: pointer;
+        }
+        #ui-visitante { background: #1e293b; padding: 20px; border-top: 2px solid var(--accent); z-index: 10; }
+    </style>
+</head>
+<body>
+    <div id="video-container">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <div id="selector-apto">
+            <h2 style="color: var(--accent)">Gr29 System</h2>
+            <p>Seleccione el apartamento para llamar:</p>
+            <div class="grid-aptos">
+                <button class="btn-apto" onclick="seleccionar('101')">Apto 101</button>
+                <button class="btn-apto" onclick="seleccionar('201')">Apto 201</button>
+            </div>
+        </div>
+    </div>
+    <div id="ui-visitante" style="display: none;">
+        <div id="ana-status">🔵 Ana AI: Notificando al residente...</div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ugmghwxsdxrghlyumbqr.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnbWdod3hzZHhyZ2hseXVtYnFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTc4MjUsImV4cCI6MjA5MTIzMzgyNX0.Te7Tp655sZnoSz8HhLOEjjPcjx06BnCdqmosW-TxQBY';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentApto = "";
+        let localStream;
+
+        async function seleccionar(num) {
+            currentApto = num;
+            document.getElementById('selector-apto').style.display = 'none';
+            document.getElementById('ui-visitante').style.display = 'block';
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, frameRate: 15 },
+                    audio: true
+                });
+                document.getElementById('localVideo').srcObject = localStream;
+                initPeer();
+            } catch (e) { alert("Error: Por favor permite el acceso a la cámara."); }
+        }
+
+        function initPeer() {
+            const peerId = `gr29-${currentApto.toLowerCase()}-${Math.floor(Math.random()*900)+100}`;
+            const peer = new Peer(peerId, {
+                config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }, { 'urls': 'stun:global.stun.twilio.com:3478' }] }
+            });
+
+            peer.on('open', async (id) => {
+                await supabaseClient.from('visitor_messages').insert({
+                    apto: currentApto,
+                    sender: 'visitante',
+                    message: `[SISTEMA] PeerID:${id}`,
+                    created_at: new Date().toISOString()
+                });
+                document.getElementById('ana-status').innerText = "🟢 Ana AI: Residente avisado. Por favor, espere.";
+            });
+
+            peer.on('call', (call) => call.answer(localStream));
+            peer.on('disconnected', () => peer.reconnect());
+        }
+    </script>
+</body>
+</html>
