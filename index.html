@@ -3,44 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ana AI - Visitante</title>
+    <title>Citófono | Visitante</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
     <style>
-        :root { --bg: #0f172a; --accent: #38bdf8; --text: #f8fafc; }
+        :root { 
+            --bg-dark: #121212; 
+            --card-bg: #1e1e1e;
+            --green-neon: #2ee97d;
+            --green-dark: #059669;
+            --gradient-green: linear-gradient(135deg, #2ee97d 0%, #059669 100%);
+            --text-main: #ffffff;
+            --text-muted: #a1a1aa;
+        }
+        
         body { 
-            background: var(--bg); color: var(--text); font-family: sans-serif; 
-            margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            background-color: var(--bg-dark); 
+            color: var(--text-main); 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overflow: hidden;
         }
+
         #video-container { position: relative; width: 100%; flex-grow: 1; background: #000; }
-        #localVideo { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        #selector-apto {
+        #localVideo { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0.5; }
+        
+        /* Contenedor general para las pantallas superpuestas */
+        .overlay-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.95); z-index: 20;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(18, 18, 18, 0.90); backdrop-filter: blur(10px);
+            z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .grid-aptos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px; }
+
+        .header-brand {
+            font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; text-align: center;
+            background: var(--gradient-green);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle { color: var(--text-muted); font-size: 1rem; margin-bottom: 30px; font-weight: 400; text-align: center; }
+
+        /* Estilos del Formulario Check-in */
+        .form-group { width: 85%; max-width: 350px; display: flex; flex-direction: column; gap: 15px; }
+        
+        .input-field {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        /* Corrección para el menú desplegable en modo oscuro */
+        select.input-field option {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+        }
+
+        .input-field:focus { border-color: var(--green-neon); }
+        .input-field::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+        .btn-primary {
+            background: var(--gradient-green);
+            color: #000;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(46, 233, 125, 0.3);
+            transition: transform 0.2s;
+        }
+        
+        .btn-primary:active { transform: scale(0.98); }
+
+        /* Estilos del Directorio de Apartamentos */
+        .grid-aptos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; width: 80%; max-width: 400px; }
+        
         .btn-apto {
-            background: #1e293b; color: white; border: 1px solid var(--accent);
-            padding: 15px 25px; border-radius: 10px; font-weight: bold; cursor: pointer;
+            background: var(--card-bg); color: var(--text-main); 
+            border: 1px solid rgba(46, 233, 125, 0.3);
+            padding: 20px; border-radius: 16px; font-weight: 600; font-size: 1.2rem;
+            cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
-        #ui-visitante { background: #1e293b; padding: 20px; border-top: 2px solid var(--accent); z-index: 10; }
+
+        .btn-apto:hover, .btn-apto:active {
+            border-color: var(--green-neon); background: rgba(46, 233, 125, 0.1);
+            box-shadow: 0 0 15px rgba(46, 233, 125, 0.2); transform: translateY(-2px);
+        }
+
+        /* UI Inferior de Llamada */
+        #ui-visitante { 
+            position: absolute; bottom: 0; width: 100%; background: var(--card-bg); 
+            padding: 30px 20px; border-top: 1px solid rgba(46, 233, 125, 0.2); 
+            z-index: 10; box-sizing: border-box; text-align: center;
+        }
+
+        #ana-status { font-weight: 600; color: var(--green-neon); font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .pulse { width: 12px; height: 12px; background-color: var(--green-neon); border-radius: 50%; animation: pulse-green 1.5s infinite; }
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 233, 125, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(46, 233, 125, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 233, 125, 0); }
+        }
     </style>
 </head>
 <body>
     <div id="video-container">
         <video id="localVideo" autoplay playsinline muted></video>
-        <div id="selector-apto">
-            <h2 style="color: var(--accent)">Gr29 System</h2>
-            <p>Seleccione el apartamento para llamar:</p>
+        
+        <!-- PANTALLA 1: CHECK-IN EXPRESS -->
+        <div id="checkin-screen" class="overlay-screen">
+            <h1 class="header-brand">Scalable<br>Access</h1>
+            <p class="subtitle">Registro de Visitante</p>
+            
+            <div class="form-group">
+                <input type="text" id="visitor-name" class="input-field" placeholder="Su nombre completo" autocomplete="off">
+                <select id="visitor-reason" class="input-field" style="appearance: none;">
+                    <option value="" disabled selected>Motivo de la visita</option>
+                    <option value="Delivery / Encomienda">Delivery / Encomienda</option>
+                    <option value="Visita Familiar / Amistad">Visita Familiar / Amistad</option>
+                    <option value="Servicio Técnico">Servicio Técnico</option>
+                    <option value="Otro">Otro</option>
+                </select>
+                <button class="btn-primary" onclick="validarCheckin()">Continuar</button>
+            </div>
+        </div>
+
+        <!-- PANTALLA 2: SELECCIÓN DE APARTAMENTO -->
+        <div id="selector-apto" class="overlay-screen" style="display: none;">
+            <h1 class="header-brand">Directorio</h1>
+            <p class="subtitle">Seleccione su destino</p>
             <div class="grid-aptos">
-                <button class="btn-apto" onclick="seleccionar('101')">Apto 101</button>
-                <button class="btn-apto" onclick="seleccionar('201')">Apto 201</button>
+                <button class="btn-apto" onclick="seleccionar('101')">101</button>
+                <button class="btn-apto" onclick="seleccionar('201')">201</button>
             </div>
         </div>
     </div>
+
+    <!-- PANTALLA 3: LLAMANDO -->
     <div id="ui-visitante" style="display: none;">
-        <div id="ana-status">🔵 Ana AI: Notificando al residente...</div>
+        <div id="ana-status">
+            <div class="pulse"></div>
+            <span>Conectando con el residente...</span>
+        </div>
     </div>
 
     <script>
@@ -50,11 +169,33 @@
 
         let currentApto = "";
         let localStream;
+        let finalName = "";
+        let finalReason = "";
+
+        // Función que se ejecuta al darle "Continuar" en el formulario
+        function validarCheckin() {
+            const nameInput = document.getElementById('visitor-name').value.trim();
+            const reasonInput = document.getElementById('visitor-reason').value;
+
+            if (!nameInput || !reasonInput) {
+                alert("Por favor, ingrese su nombre y seleccione un motivo para continuar.");
+                return;
+            }
+
+            // Guardamos los datos y pasamos a la siguiente pantalla
+            finalName = nameInput;
+            finalReason = reasonInput;
+            
+            document.getElementById('checkin-screen').style.display = 'none';
+            document.getElementById('selector-apto').style.display = 'flex';
+        }
 
         async function seleccionar(num) {
             currentApto = num;
             document.getElementById('selector-apto').style.display = 'none';
             document.getElementById('ui-visitante').style.display = 'block';
+            document.getElementById('localVideo').style.opacity = '1'; 
+            
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     video: { width: 640, height: 480, frameRate: 15 },
@@ -62,23 +203,26 @@
                 });
                 document.getElementById('localVideo').srcObject = localStream;
                 initPeer();
-            } catch (e) { alert("Error: Por favor permite el acceso a la cámara."); }
+            } catch (e) { alert("Error: Por favor permita el acceso a la cámara."); }
         }
 
         function initPeer() {
             const peerId = `gr29-${currentApto.toLowerCase()}-${Math.floor(Math.random()*900)+100}`;
             const peer = new Peer(peerId, {
-                config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }, { 'urls': 'stun:global.stun.twilio.com:3478' }] }
+                config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
             });
 
             peer.on('open', async (id) => {
+                // AQUÍ ESTÁ LA MAGIA: Empaquetamos el nombre y el motivo junto con el ID del video
+                const payloadMessage = `[SISTEMA] PeerID:${id}|NOMBRE:${finalName}|MOTIVO:${finalReason}`;
+                
                 await supabaseClient.from('visitor_messages').insert({
                     apto: currentApto,
                     sender: 'visitante',
-                    message: `[SISTEMA] PeerID:${id}`,
+                    message: payloadMessage,
                     created_at: new Date().toISOString()
                 });
-                document.getElementById('ana-status').innerText = "🟢 Ana AI: Residente avisado. Por favor, espere.";
+                document.querySelector('#ana-status span').innerText = "Residente avisado. Por favor, espere.";
             });
 
             peer.on('call', (call) => call.answer(localStream));
